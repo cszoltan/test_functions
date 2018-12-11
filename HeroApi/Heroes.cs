@@ -25,6 +25,7 @@ namespace HeroApi
             {
                 ConnectionString = await GetConnString();
             }
+
             try
             {
                 string json;
