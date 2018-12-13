@@ -11,16 +11,25 @@ using Newtonsoft.Json;
 using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Http;
+using Microsoft.ApplicationInsights;
+using System;
+using System.Diagnostics;
 
 namespace HeroApi
 {
     public static class Heroes
     {
         private static string ConnectionString = null;
+        private static TelemetryClient telemetry = new TelemetryClient() { InstrumentationKey = System.Environment.GetEnvironmentVariable("APP_INSIGHTS_KEY") };
 
         [FunctionName("getHeroes")]
         public static async Task<HttpResponseMessage> GetData([HttpTrigger(AuthorizationLevel.Anonymous, "get", Route = "heroes/{id?}")]HttpRequest req, string id, ILogger log)
         {
+            string requestname = req.Path.ToString();
+            var time = DateTime.Now;
+            var sw = Stopwatch.StartNew();
+            telemetry.Context.Operation.Id = Guid.NewGuid().ToString();
+
             if (ConnectionString == null)
             {
                 ConnectionString = await GetConnString();
@@ -41,6 +50,7 @@ namespace HeroApi
                 {
                     json = GetHeroes(ConnectionString).Result;
                 }
+                telemetry.TrackRequest(requestname, time, sw.Elapsed, "200", true);
                 return new HttpResponseMessage(HttpStatusCode.OK)
                 {
                     Content = new StringContent(json, Encoding.UTF8, "application/json")
@@ -48,6 +58,7 @@ namespace HeroApi
             }
             catch (SqlException e)
             {
+                telemetry.TrackRequest(requestname, time, sw.Elapsed, "500", true);
                 return new HttpResponseMessage(HttpStatusCode.InternalServerError);
             }
         }
